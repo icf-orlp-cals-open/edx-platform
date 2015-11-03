@@ -13,6 +13,7 @@ from django.core.urlresolvers import reverse
 from django.test.client import Client
 from django.test.utils import override_settings
 
+from badges.tests.factories import BadgeAssertionFactory, CourseCompleteImageConfigurationFactory
 from openedx.core.lib.tests.assertions.events import assert_event_matches
 from student.tests.factories import UserFactory, CourseEnrollmentFactory
 from student.roles import CourseStaffRole
@@ -27,8 +28,8 @@ from certificates.models import (
     CertificateStatuses,
     CertificateSocialNetworks,
     CertificateTemplate,
-    CertificateHtmlViewConfiguration
-)
+    CertificateHtmlViewConfiguration,
+    get_completion_badge)
 
 from certificates.tests.factories import (
     CertificateHtmlViewConfigurationFactory,
@@ -99,6 +100,7 @@ class CertificatesViewsTests(ModuleStoreTestCase, EventTrackingTestCase):
         )
         CertificateHtmlViewConfigurationFactory.create()
         LinkedInAddToProfileConfigurationFactory.create()
+        CourseCompleteImageConfigurationFactory.create()
 
     def _add_course_certificates(self, count=1, signatory_count=0, is_active=True):
         """
@@ -495,16 +497,15 @@ class CertificatesViewsTests(ModuleStoreTestCase, EventTrackingTestCase):
         test_url = '{}?evidence_visit=1'.format(cert_url)
         self._add_course_certificates(count=1, signatory_count=2)
         self.recreate_tracker()
-        assertion = BadgeAssertion(
-            user=self.user, course_id=self.course_id, mode='honor',
+        badge_class = get_completion_badge(self.course_id, self.user)
+        assertion = BadgeAssertionFactory(
+            user=self.user, badge_class=badge_class,
             data={
                 'image': 'http://www.example.com/image.png',
                 'json': {'id': 'http://www.example.com/assertion.json'},
                 'issuer': 'http://www.example.com/issuer.json',
-
             }
         )
-        assertion.save()
         response = self.client.get(test_url)
         self.assertEqual(response.status_code, 200)
         assert_event_matches(

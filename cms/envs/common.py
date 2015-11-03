@@ -793,6 +793,9 @@ INSTALLED_APPS = (
 
     # Self-paced course configuration
     'openedx.core.djangoapps.self_paced',
+
+    # Badging app, needed even if not used for migrations
+    'badges',
 )
 
 
