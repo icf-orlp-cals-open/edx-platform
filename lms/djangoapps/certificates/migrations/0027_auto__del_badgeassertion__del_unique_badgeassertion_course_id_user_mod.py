@@ -1,31 +1,45 @@
 # -*- coding: utf-8 -*-
-import os
 from south.utils import datetime_utils as datetime
 from south.db import db
-from south.v2 import DataMigration
+from south.v2 import SchemaMigration
 from django.db import models
-from django.core.files import File
-from django.conf import settings
 
 
-class Migration(DataMigration):
+class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        """Add default modes"""
-        for mode in ['honor', 'verified', 'professional']:
-            conf = orm.BadgeImageConfiguration()
-            conf.mode = mode
-            file_name = mode + '.png'
-            conf._meta.get_field('icon').generate_filename = \
-                lambda inst, fn: os.path.join('badges', fn)
-            conf.icon.save(
-                file_name,
-                File(open(settings.PROJECT_ROOT / 'static' / 'images' / 'default-badges' / file_name))
-            )
-            conf.save()
+        # Removing unique constraint on 'BadgeAssertion', fields ['course_id', 'user', 'mode']
+        db.delete_unique('certificates_badgeassertion', ['course_id', 'user_id', 'mode'])
+
+        # Deleting model 'BadgeAssertion'
+        db.delete_table('certificates_badgeassertion')
+
+        # Deleting model 'BadgeImageConfiguration'
+        db.delete_table('certificates_badgeimageconfiguration')
 
     def backwards(self, orm):
-        """Do nothing, assumptions too dangerous."""
+        # Adding model 'BadgeAssertion'
+        db.create_table('certificates_badgeassertion', (
+            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='deprecated_assertions', to=orm['auth.User'])),
+            ('course_id', self.gf('xmodule_django.models.CourseKeyField')(default=None, max_length=255, blank=True)),
+            ('data', self.gf('django.db.models.fields.TextField')(default='{}')),
+            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('mode', self.gf('django.db.models.fields.CharField')(max_length=100)),
+        ))
+        db.send_create_signal('certificates', ['BadgeAssertion'])
+
+        # Adding unique constraint on 'BadgeAssertion', fields ['course_id', 'user', 'mode']
+        db.create_unique('certificates_badgeassertion', ['course_id', 'user_id', 'mode'])
+
+        # Adding model 'BadgeImageConfiguration'
+        db.create_table('certificates_badgeimageconfiguration', (
+            ('default', self.gf('django.db.models.fields.BooleanField')(default=False)),
+            ('mode', self.gf('django.db.models.fields.CharField')(max_length=125, unique=True)),
+            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('icon', self.gf('django.db.models.fields.files.ImageField')(max_length=100)),
+        ))
+        db.send_create_signal('certificates', ['BadgeImageConfiguration'])
+
 
     models = {
         'auth.group': {
@@ -57,23 +71,8 @@ class Migration(DataMigration):
             'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'}),
             'username': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '30'})
         },
-        'certificates.badgeassertion': {
-            'Meta': {'unique_together': "(('course_id', 'user'),)", 'object_name': 'BadgeAssertion'},
-            'course_id': ('xmodule_django.models.CourseKeyField', [], {'default': 'None', 'max_length': '255', 'blank': 'True'}),
-            'data': ('django.db.models.fields.TextField', [], {'default': "'{}'"}),
-            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'mode': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']"})
-        },
-        'certificates.badgeimageconfiguration': {
-            'Meta': {'object_name': 'BadgeImageConfiguration'},
-            'default': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'icon': ('django.db.models.fields.files.ImageField', [], {'max_length': '100'}),
-            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'mode': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '125'})
-        },
         'certificates.certificategenerationconfiguration': {
-            'Meta': {'object_name': 'CertificateGenerationConfiguration'},
+            'Meta': {'ordering': "('-change_date',)", 'object_name': 'CertificateGenerationConfiguration'},
             'change_date': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
             'changed_by': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']", 'null': 'True', 'on_delete': 'models.PROTECT'}),
             'enabled': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
@@ -88,23 +87,46 @@ class Migration(DataMigration):
             'modified': ('model_utils.fields.AutoLastModifiedField', [], {'default': 'datetime.datetime.now'})
         },
         'certificates.certificatehtmlviewconfiguration': {
-            'Meta': {'object_name': 'CertificateHtmlViewConfiguration'},
+            'Meta': {'ordering': "('-change_date',)", 'object_name': 'CertificateHtmlViewConfiguration'},
             'change_date': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
             'changed_by': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']", 'null': 'True', 'on_delete': 'models.PROTECT'}),
             'configuration': ('django.db.models.fields.TextField', [], {}),
             'enabled': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
         },
+        'certificates.certificatetemplate': {
+            'Meta': {'unique_together': "(('organization_id', 'course_key', 'mode'),)", 'object_name': 'CertificateTemplate'},
+            'course_key': ('xmodule_django.models.CourseKeyField', [], {'db_index': 'True', 'max_length': '255', 'null': 'True', 'blank': 'True'}),
+            'created': ('model_utils.fields.AutoCreatedField', [], {'default': 'datetime.datetime.now'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'}),
+            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'is_active': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'mode': ('django.db.models.fields.CharField', [], {'default': "'honor'", 'max_length': '125', 'null': 'True', 'blank': 'True'}),
+            'modified': ('model_utils.fields.AutoLastModifiedField', [], {'default': 'datetime.datetime.now'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'organization_id': ('django.db.models.fields.IntegerField', [], {'db_index': 'True', 'null': 'True', 'blank': 'True'}),
+            'template': ('django.db.models.fields.TextField', [], {})
+        },
+        'certificates.certificatetemplateasset': {
+            'Meta': {'object_name': 'CertificateTemplateAsset'},
+            'asset': ('django.db.models.fields.files.FileField', [], {'max_length': '255'}),
+            'created': ('model_utils.fields.AutoCreatedField', [], {'default': 'datetime.datetime.now'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'}),
+            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'modified': ('model_utils.fields.AutoLastModifiedField', [], {'default': 'datetime.datetime.now'})
+        },
         'certificates.certificatewhitelist': {
             'Meta': {'object_name': 'CertificateWhitelist'},
             'course_id': ('xmodule_django.models.CourseKeyField', [], {'default': 'None', 'max_length': '255', 'blank': 'True'}),
+            'created': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'notes': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']"}),
             'whitelist': ('django.db.models.fields.BooleanField', [], {'default': 'False'})
         },
         'certificates.examplecertificate': {
             'Meta': {'object_name': 'ExampleCertificate'},
-            'access_key': ('django.db.models.fields.CharField', [], {'default': "'6712301c558d4f41a0491bb12c9ab688'", 'max_length': '255', 'db_index': 'True'}),
+            'access_key': ('django.db.models.fields.CharField', [], {'default': "'6a821e66295048ad8735445e02208d99'", 'max_length': '255', 'db_index': 'True'}),
             'created': ('model_utils.fields.AutoCreatedField', [], {'default': 'datetime.datetime.now'}),
             'description': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
             'download_url': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '255', 'null': 'True'}),
@@ -115,7 +137,7 @@ class Migration(DataMigration):
             'modified': ('model_utils.fields.AutoLastModifiedField', [], {'default': 'datetime.datetime.now'}),
             'status': ('django.db.models.fields.CharField', [], {'default': "'started'", 'max_length': '255'}),
             'template': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
-            'uuid': ('django.db.models.fields.CharField', [], {'default': "'86d042630fdf4efcb8e705baad30c89f'", 'unique': 'True', 'max_length': '255', 'db_index': 'True'})
+            'uuid': ('django.db.models.fields.CharField', [], {'default': "'3b5762422f4a45d295ead8288d904798'", 'unique': 'True', 'max_length': '255', 'db_index': 'True'})
         },
         'certificates.examplecertificateset': {
             'Meta': {'object_name': 'ExampleCertificateSet'},
@@ -152,4 +174,3 @@ class Migration(DataMigration):
     }
 
     complete_apps = ['certificates']
-    symmetrical = True

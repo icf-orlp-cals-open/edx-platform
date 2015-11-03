@@ -14,8 +14,8 @@ from django.utils.translation import ugettext as _
 from django.utils.encoding import smart_str
 from django.core.urlresolvers import reverse
 
-from courseware.courses import course_image_url
 from courseware.access import has_access
+from courseware.courses import course_image_url
 from edxmako.shortcuts import render_to_response
 from edxmako.template import Template
 from eventtracking import tracker
@@ -38,8 +38,8 @@ from certificates.models import (
     GeneratedCertificate,
     CertificateHtmlViewConfiguration,
     CertificateSocialNetworks,
-    BadgeAssertion
-)
+    get_completion_badge)
+
 
 log = logging.getLogger(__name__)
 
@@ -133,11 +133,9 @@ def _update_certificate_context(context, course, user, user_certificate):
 
     course_number = course.display_coursenumber if course.display_coursenumber else course.number
     context['course_number'] = course_number
-    try:
-        badge = BadgeAssertion.objects.get(user=user, course_id=course.location.course_key)
-    except BadgeAssertion.DoesNotExist:
-        badge = None
-    context['badge'] = badge
+    if settings.FEATURES.get('ENABLE_OPENBADGES'):
+        badge = get_completion_badge(course.location.course_key, user).get_for_user(user)
+        context['badge'] = badge
 
     # Override the defaults with any mode-specific static values
     context['certificate_id_number'] = user_certificate.verify_uuid
@@ -355,6 +353,30 @@ def render_html_view(request, user_id, course_id):
                 course_id=course_key
             )
 
+            # Badge Request Event Tracking Logic
+        if 'evidence_visit' in request.GET:
+            badge_class = get_completion_badge(course_key, user)
+            badge = badge_class.get_for_user(user)
+            if badge:
+                tracker.emit(
+                    'edx.badge.assertion.evidence_visited',
+                    {
+                        'user_id': user.id,
+                        'course_id': unicode(course_key),
+                        'enrollment_mode': badge.badge_class.mode,
+                        'assertion_id': badge.id,
+                        'assertion_image_url': badge.data['image'],
+                        'assertion_json_url': badge.data['json']['id'],
+                        'issuer': badge.data['issuer'],
+                    }
+                )
+            else:
+                log.warn(
+                    "Could not find badge for %s on course %s.",
+                    user.id,
+                    course_key,
+                )
+
     # If there's no generated certificate data for this user, we need to see if we're in 'preview' mode...
     # If we are, we'll need to create a mock version of the user_certificate container for previewing
     except GeneratedCertificate.DoesNotExist:
@@ -373,29 +395,6 @@ def render_html_view(request, user_id, course_id):
     # For any other expected exceptions, kick the user back to the "Invalid" screen
     except (InvalidKeyError, CourseDoesNotExist, User.DoesNotExist):
         return render_to_response(invalid_template_path, context)
-
-    # Badge Request Event Tracking Logic
-    if 'evidence_visit' in request.GET:
-        try:
-            badge = BadgeAssertion.objects.get(user=user, course_id=course_key)
-            tracker.emit(
-                'edx.badge.assertion.evidence_visited',
-                {
-                    'user_id': user.id,
-                    'course_id': unicode(course_key),
-                    'enrollment_mode': badge.mode,
-                    'assertion_id': badge.id,
-                    'assertion_image_url': badge.data['image'],
-                    'assertion_json_url': badge.data['json']['id'],
-                    'issuer': badge.data['issuer'],
-                }
-            )
-        except BadgeAssertion.DoesNotExist:
-            log.warn(
-                "Could not find badge for %s on course %s.",
-                user.id,
-                course_key,
-            )
 
     # Okay, now we have all of the pieces, time to put everything together
 
