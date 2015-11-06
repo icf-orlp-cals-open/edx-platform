@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 from south.utils import datetime_utils as datetime
 from south.db import db
 from south.v2 import DataMigration
@@ -16,10 +15,8 @@ class Migration(DataMigration):
             conf = orm.BadgeImageConfiguration()
             conf.mode = mode
             file_name = mode + '.png'
-            conf._meta.get_field('icon').generate_filename = \
-                lambda inst, fn: os.path.join('badges', fn)
             conf.icon.save(
-                file_name,
+                'badges/{}'.format(file_name),
                 File(open(settings.PROJECT_ROOT / 'static' / 'images' / 'default-badges' / file_name))
             )
             conf.save()
