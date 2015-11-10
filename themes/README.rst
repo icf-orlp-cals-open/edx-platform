@@ -188,18 +188,30 @@ other templates:
   was always inserted into the ``<head>`` element of the page, rather than
   the header of the ``<body>`` element, so this change makes the name more
   accurate.
+
 * ``google_analytics.html`` has been removed. The contents of this template
   can and should be added to the ``head-extra.html`` template.
+
 * ``google_tag_manager.html`` has been renamed to ``body-extra.html``. The
   template include has been adjusted so that it is included at the *end* of
   the ``<body>`` element, rather than at the start.
 
 In addition, there are some other changes you'll need to make:
 
-* The ``google_analytics_file`` config value is now ignored. If you are using
-  this config value to point to a template file, the contents of that template
-  can and should be added to the ``head-extra.html`` template, as described
-  above.
+* The ``google_analytics_file`` config value is now ignored. If your Open edX
+  installation has a Google Analytics account ID set, the Google Analytics
+  JavaScript will be included automatically on your site using that account ID.
+  You can set this account ID either using the "GOOGLE_ANALYTICS_ACCOUNT" value
+  in the Django settings, or by setting the newly-added "GOOGLE_ANALYTICS_ACCOUNT"
+  config value in your microsite configuration.
+
+* If you don't want the Google Analytics JavaScript to be output at all in your
+  microsite, set the "GOOGLE_ANALYTICS_ACCOUNT" config value to the empty string.
+  If you want to customize the way that Google Analytics is loaded, set the
+  "GOOGLE_ANALYTICS_ACCOUNT" config value to the empty string, and then load
+  Google Analytics yourself (with whatever customizations you want) in your
+  ``head-extra.html`` template.
+
 * The ``css_overrides_file`` config value is now ignored. To add a CSS override
   file to your microsite, create a ``head-extra.html`` template with the
   following content:
