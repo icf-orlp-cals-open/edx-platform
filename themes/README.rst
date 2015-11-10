@@ -196,6 +196,10 @@ other templates:
 
 In addition, there are some other changes you'll need to make:
 
+* The ``google_analytics_file`` config value is now ignored. If you are using
+  this config value to point to a template file, the contents of that template
+  can and should be added to the ``head-extra.html`` template, as described
+  above.
 * The ``css_overrides_file`` config value is now ignored. To add a CSS override
   file to your microsite, create a ``head-extra.html`` template with the
   following content:
