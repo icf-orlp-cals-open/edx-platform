@@ -134,7 +134,8 @@ def _update_certificate_context(context, course, user, user_certificate):
     course_number = course.display_coursenumber if course.display_coursenumber else course.number
     context['course_number'] = course_number
     if settings.FEATURES.get('ENABLE_OPENBADGES'):
-        badge = get_completion_badge(course.location.course_key, user).get_for_user(user)
+        # Course completions only ever have one badge.
+        badge = get_completion_badge(course.location.course_key, user).get_for_user(user)[0]
         context['badge'] = badge
 
     # Override the defaults with any mode-specific static values
