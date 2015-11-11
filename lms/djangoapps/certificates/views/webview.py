@@ -358,6 +358,8 @@ def render_html_view(request, user_id, course_id):
             badge_class = get_completion_badge(course_key, user)
             badge = badge_class.get_for_user(user)
             if badge:
+                # There should only ever be one of these.
+                badge = badge[0]
                 tracker.emit(
                     'edx.badge.assertion.evidence_visited',
                     {
