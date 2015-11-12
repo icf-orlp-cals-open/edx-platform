@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.images import ImageFile
 from django.test import TestCase
 from django.test.utils import override_settings
-from mock import patch
+from mock import patch, Mock
 from nose.plugins.attrib import attr
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
@@ -58,6 +58,7 @@ class DummyBackend(object):
     """
     Dummy badge backend, used for testing.
     """
+    award = Mock()
 
 
 class BadgeClassTest(TestCase, ImageFetchingMixin):

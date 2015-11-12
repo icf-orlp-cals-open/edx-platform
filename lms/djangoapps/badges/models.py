@@ -1,6 +1,7 @@
 """
 Database models for the badges app
 """
+import re
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -8,7 +9,10 @@ from django.db import models
 from django.utils.importlib import import_module
 from django.utils.translation import ugettext_lazy as _
 from lazy import lazy
+from opaque_keys import InvalidKeyError
+from opaque_keys.edx.keys import CourseKey
 
+from config_models.models import ConfigurationModel
 from xmodule_django.models import CourseKeyField
 from jsonfield import JSONField
 
@@ -91,6 +95,9 @@ class BadgeClass(models.Model):
         """
         return self.backend.award(self, user, evidence_url=evidence_url)
 
+    class Meta(object):
+        verbose_name_plural = "Badge Classes"
+
 
 class BadgeAssertion(models.Model):
     """
@@ -117,9 +124,6 @@ class BadgeAssertion(models.Model):
         if course_id:
             return cls.objects.filter(user=user, badge_class__course_id=course_id)
         return cls.objects.filter(user=user)
-
-    class Meta(object):
-        unique_together = (('badge_class', 'user'),)
 
 
 class CourseCompleteImageConfiguration(models.Model):
@@ -170,3 +174,107 @@ class CourseCompleteImageConfiguration(models.Model):
         except cls.DoesNotExist:
             # Fall back to default, if there is one.
             return cls.objects.get(default=True).icon
+
+
+class CourseEventBadgesConfiguration(ConfigurationModel):
+    """
+    Determines the settings for meta course awards-- such as completing a certain
+    number of courses or enrolling in a certain number of them.
+    """
+    courses_completed = models.TextField(
+        blank=True, default='',
+        help_text=_(
+            u"On each line, put the number of completed courses to award a badge for, a comma, and the slug of a "
+            u"badge class you have created with the issuing component 'edx__course'. "
+            u"For example: 3,course-v1:edx/Demo/DemoX"
+        )
+    )
+    courses_enrolled = models.TextField(
+        blank=True, default='',
+        help_text=_(
+            u"On each line, put the number of enrolled courses to award a badge for, a comma, and the slug of a "
+            u"badge class you have created with the issuing component 'edx__course'. "
+            u"For example: 3,course-v1:edx/Demo/DemoX"
+        )
+    )
+    course_groups = models.TextField(
+        blank=True, default='',
+        help_text=_(
+            u"On each line, put the slug of a badge class you have created with the issuing component 'edx__course' to "
+            u"award, a comma, and a :-separated list of course keys that the user will need to complete to get this "
+            u"badge. For example: slug_for_compsci_courses_group_badge,course-v1:CompSci+Course+First,course-v1:"
+            u"CompsSci+Course+Second"
+        )
+    )
+
+    def __unicode__(self):
+        return u"<CourseEventBadgesConfiguration ({})>".format(u"Enabled" if self.enabled else u"Disabled")
+
+    @staticmethod
+    def get_specs(text):
+        """
+        Takes a string in the format of:
+            int,course_key
+            int,course_key
+
+        And returns a dictionary with the keys as the numbers and the values as the course keys.
+        """
+        specs = re.split('[\n\r]', text)
+        specs = [line.split(',') for line in specs if line.strip()]
+        specs = [(int(num.strip()), slug.strip()) for num, slug in specs]
+        return dict(specs)
+
+    @property
+    def completed_settings(self):
+        """
+        Parses the settings from the courses_completed field.
+        """
+        return self.get_specs(self.courses_completed)
+
+    @property
+    def enrolled_settings(self):
+        """
+        Parses the settings from the courses_completed field.
+        """
+        return self.get_specs(self.courses_enrolled)
+
+    @property
+    def course_group_settings(self):
+        """
+        Parses the course group settings. In example, the format is:
+
+        slug_for_compsci_courses_group_badge,course-v1:CompSci+Course+First,course-v1:CompsSci+Course+Second
+        """
+        specs = self.course_groups.strip()
+        if not specs:
+            return {}
+        specs = re.split('[\n\r]', specs)
+        specs = [line.split(',', 1) for line in specs]
+        return {
+            slug.strip(): [CourseKey.from_string(key.strip()) for key in keys.strip().split(',')]
+            for slug, keys in specs
+        }
+
+    def clean_fields(self, exclude=tuple()):
+        """
+        Verify the settings are parseable.
+        """
+        errors = {}
+        error_message = _(u"Please check the syntax of your entry.")
+        if 'courses_completed' not in exclude:
+            try:
+                self.completed_settings
+            except (ValueError, InvalidKeyError):
+                errors['courses_completed'] = [unicode(error_message)]
+        if 'courses_enrolled' not in exclude:
+            try:
+                self.enrolled_settings
+            except (ValueError, InvalidKeyError) as err:
+                errors['courses_enrolled'] = [unicode(error_message)]
+        if 'course_groups' not in exclude:
+            try:
+                self.course_group_settings
+            except (ValueError, InvalidKeyError) as err:
+                errors['course_groups'] = [unicode(error_message)]
+        if errors:
+            raise ValidationError(errors)
