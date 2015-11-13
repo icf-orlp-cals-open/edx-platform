@@ -184,9 +184,9 @@
                         state = jasmine.initializePlayer();
 
                         $('.toggle-captions').click();
-                        expect($('.closed-captions')).toBeHidden();
-                        $('.toggle-captions').click();
                         expect($('.closed-captions')).not.toBeHidden();
+                        $('.toggle-captions').click();
+                        expect($('.closed-captions')).toBeHidden();
                     });
 
                     it('toggles the captions on keypress ENTER', function() {

@@ -6,8 +6,6 @@
     'video/09_video_caption.js',
     ['video/00_sjson.js', 'video/00_async_process.js', 'draggabilly'],
     function (Sjson, AsyncProcess, Draggabilly) {
-        // TODO: remove once the Jasmine tests are able to load Draggabilly correctly
-        Draggabilly = Draggabilly || window.Draggabilly;
 
         /**
          * @desc VideoCaption module exports a function.
