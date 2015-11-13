@@ -119,9 +119,11 @@ class Command(BaseCommand):
                 insecure=options['insecure']
             )
             badge_class = get_completion_badge(course_id, student)
-            badge = badge_class.get_for_user(student)
-            if badge:
-                badge.delete()
+            badges = badge_class.get_for_user(student)
+            if badges:
+                # There should never be more than one, but if there is, this will delete all of them,
+                # since it's a queryset.
+                badges.delete()
                 LOGGER.info(u"Cleared badge for student %s.", student.id)
 
             LOGGER.info(
