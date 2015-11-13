@@ -175,8 +175,8 @@
 
                     this.container.on({
                         mouseenter: this.onContainerMouseEnter,
-                        mouseleave: this.onContainerMouseLeave,
-                    })
+                        mouseleave: this.onContainerMouseLeave
+                    });
                 }
 
                 state.el
