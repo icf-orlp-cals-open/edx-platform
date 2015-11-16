@@ -232,8 +232,8 @@ class YouTubeVideoTest(VideoBaseTest):
 
     def test_cc_button(self):
         """
-        Scenario: CC button works correctly with transcript in YouTube move
-        Given the course has a vieo component in "Youtube" mode
+        Scenario: CC button works correctly with transcript in YouTube mode
+        Given the course has a video component in "Youtube" mode
         And I have defined a transcript for the video
         Then I see the closed captioning element over the video
         """
@@ -241,9 +241,19 @@ class YouTubeVideoTest(VideoBaseTest):
         self.metadata = self.metadata_for_mode('youtube', data)
         self.assets.append('chinese_transcripts.srt')
         self.navigate_to_video()
-        self.video.show_closed_captions()
 
+        # Show captions and make sure they're visible
+        self.video.show_closed_captions()
+        self.video.wait_for_closed_captions()
         self.assertTrue(self.video.is_closed_captions_visible)
+
+        # Hide captions and make sure they're hidden
+        self.video.hide_closed_captions()
+        self.video._wait_for(
+            lambda: self.video.is_closed_captions_visible() == False,
+            "Closed captions should be hidden",
+            timeout=5
+        )
 
     def test_transcript_button_transcripts_and_sub_fields_empty(self):
         """

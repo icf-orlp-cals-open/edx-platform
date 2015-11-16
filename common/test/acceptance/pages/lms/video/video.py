@@ -303,7 +303,7 @@ class VideoPage(PageObject):
 
     def hide_closed_captions(self):
         """
-        Make closed captions vnvisible.
+        Make closed captions invisible.
         """
         self._closed_captions_visibility(False)
 
