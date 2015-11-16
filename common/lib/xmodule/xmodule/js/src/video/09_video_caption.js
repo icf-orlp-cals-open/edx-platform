@@ -1053,7 +1053,7 @@
             },
 
             handleCaptioningCookie: function() {
-                if ($.cookie('show_closed_captions')) {
+                if ($.cookie('show_closed_captions') == 'true') {
                     this.state.showClosedCaptions = true;
                     this.showClosedCaptions();
 
@@ -1109,6 +1109,19 @@
                 this.updateCaptioningCookie(false);
             },
 
+            updateCaptioningCookie: function(method) {
+                if (method) {
+                    $.cookie('show_closed_captions', 'true', {
+                        expires: 3650,
+                        path: '/'
+                    });
+                } else {
+                    $.cookie('show_closed_captions', null, {
+                        path: '/'
+                    });
+                }
+            },
+
             getCaptionText: function() {
                 this.captionDisplayEl.text(this.subtitlesEl.find('.current').text());
                 this.updateCaptionText();
@@ -1130,17 +1143,6 @@
                     draggable = new Draggabilly(captions, { containment: true });
                 } else {
                     console.log('Closed captioning available but not draggable');
-                }
-            },
-
-            updateCaptioningCookie: function(method) {
-                if (method) {
-                    $.cookie('show_closed_captions', 'true', {
-                        expires: 3650,
-                        path: '/'
-                    });
-                } else {
-                    $.cookie('show_closed_captions', '');
                 }
             },
 

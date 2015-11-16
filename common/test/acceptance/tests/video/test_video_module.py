@@ -246,16 +246,14 @@ class YouTubeVideoTest(VideoBaseTest):
         self.video.show_closed_captions()
         self.video.wait_for_closed_captions()
         self.assertTrue(self.video.is_closed_captions_visible)
-        self.assertEqual(self.video.get_cookie('show_closed_captions') == "true")
+        self.video.reload_page()
+        self.assertEqual(self.video.get_cookie('show_closed_captions')['value'], 'true')
 
         # Hide captions and make sure they're hidden and cookie is unset
         self.video.hide_closed_captions()
-        self.video._wait_for(
-            lambda: self.video.is_closed_captions_visible() == False,
-            "Closed captions should be hidden",
-            timeout=5
-        )
-        self.assertEqual(self.video.get_cookie('show_closed_captions') == "None")
+        self.video.wait_for_closed_captions_to_be_hidden()
+        self.video.reload_page()
+        self.assertIsNone(self.video.get_cookie('show_closed_captions'))
 
     def test_transcript_button_transcripts_and_sub_fields_empty(self):
         """
@@ -549,6 +547,16 @@ class YouTubeVideoTest(VideoBaseTest):
             timeout=5
         )
 
+    def _verify_closed_caption_text(self, text):
+        """
+        Scenario: returns True if the captions are visible, False is else
+        """
+        self.video.wait_for(
+            lambda: (text in self.video.closed_captions_text),
+            u'Closed captions contain "{}" text'.format(text),
+            timeout=5
+        )
+
     def test_video_language_menu_working(self):
         """
         Scenario: Language menu works correctly in Video component
@@ -580,6 +588,46 @@ class YouTubeVideoTest(VideoBaseTest):
 
         self.video.select_language('en')
         self._verify_caption_text('Welcome to edX.')
+
+    def test_video_language_menu_working_closed_captions(self):
+        """
+        Scenario: Language menu works correctly in Video component, checks closed captions
+        Given the course has a Video component in "Youtube" mode
+        And I have defined multiple language transcripts for the videos
+        And I make sure captions are closed
+        And I see video menu "language" with correct items
+        And I select language with code "zh"
+        Then I see "好 各位同学" text in the closed captions
+        And I select language with code "en"
+        Then I see "Welcome to edX." text in the closed captions
+        """
+        self.assets.extend(['chinese_transcripts.srt', 'subs_3_yD_cEKoCk.srt.sjson'])
+        data = {'transcripts': {"zh": "chinese_transcripts.srt"}, 'sub': '3_yD_cEKoCk'}
+        self.metadata = self.metadata_for_mode('youtube', additional_data=data)
+
+        # go to video
+        self.navigate_to_video()
+        self.video.show_closed_captions()
+
+        correct_languages = {'en': 'English', 'zh': 'Chinese'}
+        self.assertEqual(self.video.caption_languages, correct_languages)
+
+        # Change the language to Chinese and check for correct text
+        self.video.select_language('zh')
+        self.video.click_player_button('play')
+        self.video.wait_for_position('0:05')
+        self.video.click_player_button('pause')
+        self.video.seek('0:00')
+        unicode_text = "好 各位同学".decode('utf-8')
+        self._verify_closed_caption_text(unicode_text)
+
+        # Change the language to English and check for correct text
+        self.video.select_language('en')
+        self.video.click_player_button('play')
+        self.video.wait_for_position('0:05')
+        self.video.click_player_button('pause')
+        self.video.seek('0:01')
+        self._verify_closed_caption_text('Welcome to edX.')
 
     def test_multiple_videos_in_sequentials_load_and_work(self):
         """

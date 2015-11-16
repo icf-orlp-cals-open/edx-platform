@@ -369,8 +369,10 @@ class VideoPage(PageObject):
         self.click_player_button('cc_button')
 
         # Make sure that the captions are visible
-        EmptyPromise(self.is_closed_captions_visible,
-                     "closed captions are {state}".format(state=state)).fulfill()
+        EmptyPromise(lambda: self.is_closed_captions_visible() == closed_captions_new_state,
+                     "Closed captions are {state}".format(state=state)).fulfill()
+        # EmptyPromise(self.is_closed_captions_visible,
+        #              "closed captions are {state}".format(state=state)).fulfill()
 
     @property
     def captions_text(self):
@@ -399,7 +401,7 @@ class VideoPage(PageObject):
         """
         self.wait_for_closed_captions()
 
-        closed_captions_selector = self.get_element_selector(CSS_CLASS_NAMES['captions_closed'])
+        closed_captions_selector = self.get_element_selector(CSS_CLASS_NAMES['closed_captions'])
         subs = self.q(css=closed_captions_selector).html
 
         return ' '.join(subs)
@@ -907,7 +909,14 @@ class VideoPage(PageObject):
         Wait until closed captions are rendered completely.
         """
         cc_rendered_selector = self.get_element_selector(CSS_CLASS_NAMES['closed_captions'])
-        self.wait_for_element_presence(cc_rendered_selector, 'Closed captions rendered')
+        self.wait_for_element_visibility(cc_rendered_selector, 'Closed captions rendered')
+
+    def wait_for_closed_captions_to_be_hidden(self):
+        """
+        Waits for the closed captions to be turned off completely.
+        """
+        cc_rendered_selector = self.get_element_selector(CSS_CLASS_NAMES['closed_captions'])
+        self.wait_for_element_invisibility(cc_rendered_selector, 'Closed captions hidden')
 
 
 def _parse_time_str(time_str):
