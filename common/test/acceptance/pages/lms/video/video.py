@@ -553,6 +553,12 @@ class VideoPage(PageObject):
         response = requests.get(url, **kwargs)
         return response.status_code < 400, response.headers, response.content
 
+    def get_cookie(self, cookie_name):
+        """
+        Searches for and returns `cookie_name`
+        """
+        return self.browser.get_cookie(cookie_name)
+
     def downloaded_transcript_contains_text(self, transcript_format, text_to_search):
         """
         Download the transcript in format `transcript_format` and check that it contains the text `text_to_search`
