@@ -227,4 +227,6 @@ class CourseGroupBadgeTest(ModuleStoreTestCase):
                 else:
                     self.assertFalse(badge_class.get_for_user(user))
         # pylint: disable=no-member
-        self.assertItemsEqual([badge.badge_class for badge in user.badgeassertion_set.all()], self.badge_classes)
+        classes = [badge.badge_class.id for badge in user.badgeassertion_set.all()]
+        source_classes = [badge.id for badge in self.badge_classes]
+        self.assertEqual(classes, source_classes)

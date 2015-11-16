@@ -7,6 +7,7 @@ import mimetypes
 
 import requests
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from lazy import lazy
 from requests.packages.urllib3.exceptions import HTTPError
 
@@ -26,7 +27,8 @@ class BadgrBackend(BadgeBackend):
     badges = []
 
     def __init__(self):
-        assert settings.BADGR_API_TOKEN
+        if not settings.BADGR_API_TOKEN:
+            raise ImproperlyConfigured("BADGR_API_TOKEN not set.")
 
     @lazy
     def _base_url(self):
@@ -103,7 +105,7 @@ class BadgrBackend(BadgeBackend):
         result = requests.post(self._badge_create_url, headers=self._get_headers(), data=data, files=files)
         self._log_if_raised(result, data)
 
-    def send_assertion_created_event(self, user, assertion):
+    def _send_assertion_created_event(self, user, assertion):
         """
         Send an analytics event to record the creation of a badge assertion.
         """
@@ -138,7 +140,7 @@ class BadgrBackend(BadgeBackend):
         assertion.image_url = assertion.data['image']
         assertion.assertion_url = assertion.data['json']['id']
         assertion.save()
-        self.send_assertion_created_event(user, assertion)
+        self._send_assertion_created_event(user, assertion)
         return assertion
 
     @staticmethod

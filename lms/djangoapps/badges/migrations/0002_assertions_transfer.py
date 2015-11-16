@@ -53,7 +53,9 @@ class Migration(DataMigration):
             new_conf.save()
 
     def backwards(self, orm):
-        "Write your backwards methods here."
+        """
+        certificates 0026_restore_assertions is the backwards migration for this.
+        """
 
     models = {
         'auth.group': {

@@ -23,7 +23,6 @@ import uuid
 
 import analytics
 
-from badges.events.course_meta import enrollment_check
 from config_models.models import ConfigurationModel
 from django.utils.translation import ugettext_lazy as _
 from django.conf import settings
@@ -1181,6 +1180,7 @@ class CourseEnrollment(models.Model):
         enrollment = cls.get_or_create_enrollment(user, course_key)
         enrollment.update_enrollment(is_active=True, mode=mode)
         if settings.FEATURES.get("ENABLE_OPENBADGES"):
+            from lms.djangoapps.badges.events.course_meta import enrollment_check
             enrollment_check(user)
 
         return enrollment
