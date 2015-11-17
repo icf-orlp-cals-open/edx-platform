@@ -5,13 +5,15 @@ from textwrap import dedent
 import time
 from optparse import make_option
 from sys import exit
+import traceback
+import os, socket
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from courseware.models import StudentModuleHistory, StudentModuleHistoryArchive
+from django.db import connections
 
-SQL_MAX_INT = 2**31 - 1
 
 class Command(BaseCommand):
     """
@@ -20,39 +22,12 @@ class Command(BaseCommand):
     """
     help = dedent(__doc__).strip()
     option_list = BaseCommand.option_list + (
-        make_option('-i', '--index', type='int', default=0, dest='index',
-            help='chunk index to sync (0-indexed) [default: %default]'),
-        make_option('-n', '--num-chunks', type='int', default=1, dest='num_chunks',
-            help='number of chunks to use [default: %default]'),
         make_option('-w', '--window', type='int', default=1000, dest='window',
             help='how many rows to migrate per query [default: %default]'),
-        make_option('-s', '--show-range', action='store_true', default=False, dest='show_range',
-            help="show the range that this command would've run over and the max id in that range")
+        #TODO: make option for naming locking table
     )
 
     def handle(self, *arguments, **options):
-        if options['index'] >= options['num_chunks']:
-            self.stdout.write("Index {} is too large for {} chunks\n".format(options['index'], options['num_chunks']))
-            exit(2)
-
-        #Set max and min id from the number of chunks and the selected index
-        chunk_size = SQL_MAX_INT / options['num_chunks']
-        min_id = chunk_size * options['index']
-
-        if options['index'] == options['num_chunks'] - 1:
-            max_id = SQL_MAX_INT
-        else:
-            max_id = chunk_size * options['index'] + chunk_size - 1
-
-        try:
-            #Start at the max id in the selected range, so the migration is resumable
-            min_id_already_migrated = StudentModuleHistory.objects.filter(id__lt=max_id, id__gte=min_id).order_by('id')[0].id
-            self.stdout.write("Found min existent id {} in StudentModuleHistory, resuming from there\n".format(min_id_already_migrated))
-        except IndexError:
-            #Assume we're starting from the top of the range
-            min_id_already_migrated = max_id
-            self.stdout.write("No entries found in StudentModuleHistory in this range, starting at top of range ({})\n".format(min_id_already_migrated))
-
         #Make sure there's entries to migrate in StudentModuleHistoryArchive in this range
         try:
             StudentModuleHistoryArchive.objects.filter(id__lt=min_id_already_migrated, id__gte=min_id)[0]
@@ -61,22 +36,14 @@ class Command(BaseCommand):
                 min_id_already_migrated, min_id))
             return
 
-        #If the whole range is migrated, do nothing
-        if min_id_already_migrated == min_id:
-            self.stdout.write("Range {}-{} is already fully migrated, exiting...\n".format(max_id, min_id))
-            return
-
-        if options['show_range']:
-            self.stdout.write("Range: {}-{}, min id in range: {}\n".format(max_id, min_id, min_id_already_migrated))
-            return
-
-        self._migrate_range(min_id, min_id_already_migrated, options['window'])
+        self._migrate(options['window'])
 
 
     @transaction.commit_manually
-    def _migrate_range(self, min_id, max_id, window):
-        self.stdout.write("Migrating StudentModuleHistoryArchive entries {}-{}\n".format(max_id, min_id))
+    def _migrate(self, window):
+        self.stdout.write("Migrating StudentModuleHistoryArchive\n")
         start_time = time.time()
+
 
         archive_entries = (
             StudentModuleHistoryArchive.objects
@@ -84,41 +51,124 @@ class Command(BaseCommand):
             .order_by('-id')
         )
 
+        #REMOVE
         real_max_id = None
         count = 0
         current_max_id = max_id
+        #END REMOVE
 
-        try:
-            while current_max_id > min_id:
-                entries = archive_entries.filter(id__lt=current_max_id, id__gte=max(current_max_id - window, min_id))
+        old_min_id = None
+        old_tick_timestamp = None
+        
+        while True:
+            start_time = time.time()
+
+            try:
+                ids = self._acquire_lock(window)
+            except:
+                self.stderr.write("ERROR: Failed to acquire lock:\n")
+                traceback.print_exc()
+                continue    #or exit/raise?
+
+            if not ids:
+                self.stdout.write("Migration complete\n")
+                break
+
+            try:
+                #Using __range instead of __in to avoid truncating if `window` is large
+                #`_acquire_lock` operates on contiguous ranges, so it shouldn't be a problem
+                entries = archive_entries.filter(pk__range=(ids[0], ids[-1]))
 
                 new_entries = [StudentModuleHistory.from_archive(entry) for entry in entries]
 
                 StudentModuleHistory.objects.bulk_create(new_entries)
-                count += len(new_entries)
 
-                if new_entries:
-                    if real_max_id is None:
-                        real_max_id = new_entries[0].id
+                duration = time.time() - start_time
 
-                    transaction.commit()
-                    duration = time.time() - start_time
+                self.stdout.write("Migrated StudentModuleHistoryArchive {}-{} to StudentModuleHistory\n".format(
+                    new_entries[0].id, new_entries[-1].id))
+                self.stdout.write("Migrated {} entries in {} seconds, {} entries per second\n".format(
+                    count, duration, count / duration))
+                
+                #Fancy math for remaining prediction
+                new_tick_timestamp = time.time()
+                if old_min_id is not None:
+                    num_just_migrated = new_entries[0].id - new_entries[-1].id
+                    num_migrated_by_others = old_min_id - new_entries[0].id
+                    total_migrated_this_cycle = num_just_migrated + num_migrated_by_others
+                    cycles_remaining = new_entries[-1].id / total_migrated_this_cycle
 
-                    self.stdout.write("Migrated StudentModuleHistoryArchive {}-{} to StudentModuleHistory\n".format(new_entries[0].id, new_entries[-1].id))
-                    self.stdout.write("Migrating {} entries per second. {} seconds remaining...\n".format(
-                        count / duration,
-                        timedelta(seconds=(new_entries[-1].id - min_id) / count * duration),
-                    ))
+                    time_since_last_tick = new_tick_timestamp - old_tick_timestamp
 
-                current_max_id -= window
-        except:
-            transaction.rollback()
-            raise
-        else:
-            transaction.commit()
+                    self.stdout.write("{} seconds remaining...\n".format(
+                        timedelta(seconds=cycles_remaining / time_since_last_tick)))
 
-            if new_entries:
-                self.stdout.write("Migrated StudentModuleHistoryArchive {}-{} to StudentModuleHistory\n".format(real_max_id, new_entries[-1].id))
-                self.stdout.write("Migration complete\n")
+                old_min_id = new_entries[0].id
+                old_tick_timestamp = new_tick_timestamp
+
+            except:
+                transaction.rollback()
+
+                try:
+                    self._release_lock(ids)
+                except:
+                    self.stderr.write(("ERROR: Could not release lock! "
+                        "The following IDs have NOT been migrated but are still locked: {}\n").format(
+                        ','.join(map(str, ids))))
+                    traceback.print_exc()   #or exit/raise?
+
+                raise   #Do we really want it to exit here?
+
             else:
-                self.stdout.write("No migration needed\n")
+                transaction.commit()
+
+                try:
+                    self._release_lock_and_unqueue(ids)
+                except:
+                    self.stderr.write(("ERROR: Could not release lock! "
+                        "The following IDs have been migrated but are still locked: {}\n").format(
+                        ','.join(map(str, ids))))
+                    traceback.print_exc()
+                    #what now?
+
+
+    def _acquire_lock(window):
+        '''Acquire a lock on `window` newest CSMH entries and return a sorted list of their ids (highest first)'''
+        #TODO: Fully instantiate list
+        #TODO: put in separate transaction
+        
+        cursor = connections['student_module_history']
+        
+        cursor.execute("SELECT id FROM %s WHERE processor IS NULL ORDER BY id DESC LIMIT %d FOR UPDATE;",
+            ['csmh_migration', window]) #TODO: take locking table name from option
+        ids = cursor.fetchall()
+
+        cursor.execute("UPDATE %s SET processor = %s WHERE id <= %d AND id >= %d",
+            ['csmh_migration', socket.gethostname() + '_' + os.getpid(), ids[0], ids[-1]]
+        )
+        #TODO: collect host info ahead of time
+
+
+    def _release_lock(ids):
+        cursor = connections['student_module_history']
+
+        cursor.execute("SELECT id FROM %s WHERE id <= %d AND id >= %d AND processor = %s",
+            ['csmh_migration', ids[0], ids[-1], socket.gethostname() + '_' + os.getpid()]
+        )
+        found_ids = cursor.fetchall()
+        #Make sure this is the same number of rows as I expect
+        #Clear processor
+
+    def _release_lock_and_unqueue(ids):
+        cursor = connections['student_module_history']
+
+        cursor.execute("SELECT id FROM %s WHERE id <= %d AND id >= %d AND processor = %s",
+            ['csmh_migration', ids[0], ids[-1], socket.gethostname() + '_' + os.getpid()]
+        )
+        found_ids = cursor.fetchall()
+        #Make sure this is the same number of rows as I expect
+
+        cursor.execute("DELETE FROM %s WHERE id <= %d AND id >= %d",
+            ['csmh_migration', ids[0], ids[-1]]
+        )
+
