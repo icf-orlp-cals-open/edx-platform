@@ -419,7 +419,7 @@ class TestInstructorDetailedEnrollmentReport(TestReportMixin, InstructorTaskCour
         with patch('instructor_task.tasks_helper._get_current_task'):
             result = upload_enrollment_report(None, None, self.course.id, task_input, 'generating_enrollment_report')
 
-        enrollment_source = u'manually enrolled by {username} - reason: manually enrolling unenrolled user'.format(
+        enrollment_source = u'manually enrolled by username: {username}'.format(
             username=self.instructor.username)  # pylint: disable=no-member
         self.assertDictContainsSubset({'attempted': 1, 'succeeded': 1, 'failed': 0}, result)
         self._verify_cell_data_in_csv(student.username, 'Enrollment Source', enrollment_source)
