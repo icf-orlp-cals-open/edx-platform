@@ -2,7 +2,7 @@
 <%namespace name='static' file='../static_content.html'/>
 <%!
 from django.utils.translation import ugettext as _
-from courseware.courses import get_course_info_section, get_course_date_summary, get_course_info_updates
+from courseware.courses import get_course_info_section, get_course_date_summary
 
 from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
 %>
@@ -36,6 +36,7 @@ from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
 
 <%block name="js_extra">
 <script type="text/javascript" src="${static.url('js/jquery.treeview.js')}"></script>
+<script type="text/javascript" src="${static.url('js/courseware/toggle_element_visibility.js')}"></script>
 <script type="text/javascript" charset="utf-8">
  $(document).ready(function(){
      $(".handouts").treeview({collapsed:true, unique:true/*, cookieId: "treeview-book-nav", persist: "cookie"*/});
@@ -71,12 +72,32 @@ from openedx.core.djangoapps.self_paced.models import SelfPacedConfiguration
 
       <h1>${_("Course Updates and News")}</h1>
       <section>
-      % for update in get_course_info_updates(request, course):
-          <article id="updates-article-${update['id']}">
-            <h2>${update['date']}</h2>
-            ${update["content"]}
-          </article>
-      % endfor
+        <div class="recent-updates">
+          % for index, update in enumerate(course_updates[:3]):
+            <article>
+              % if not update.get("is_error"):
+                <h2 class="date">${update.get("date")}</h2>
+                <a class="toggle-visibility-button" data-hide="Hide" data-show="Show"></a>
+              % endif
+              <div class="toggle-visibility-element article-content ${'hidden' if index >= 1 else ''}">
+                ${update.get("content")}
+              </div>
+            </article>
+          % endfor
+        </div>
+        <div class="old-updates hidden toggle-visibility-element">
+          % for update in course_updates[3:]:
+            <article>
+              <h2 class="date">${update.get("date")}</h2>
+              <a class="toggle-visibility-button" data-hide="Hide" data-show="Show"></a>
+              <div class="toggle-visibility-element article-content hidden">${update.get("content")}</div>
+            </article>
+          % endfor
+        </div>
+
+        % if len(course_updates[3:]) > 0:
+          <a class="toggle-visibility-button show-older-updates" data-hide="" data-show="Show Earlier Course Updates"></a>
+        % endif
       </section>
     </section>
     <section aria-label="${_('Handout Navigation')}" class="handouts">

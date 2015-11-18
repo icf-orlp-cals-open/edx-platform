@@ -32,7 +32,7 @@ from courseware.access_response import StartDateError
 from courseware.access_utils import in_preview_mode
 from courseware.courses import (
     get_courses, get_course, get_course_by_id,
-    get_studio_url, get_course_with_access,
+    get_studio_url, get_course_with_access, get_course_info_updates,
     sort_by_announcement,
     sort_by_start_date,
     UserNotEnrolled)
@@ -657,6 +657,8 @@ def course_info(request, course_id):
 
         show_enroll_banner = request.user.is_authenticated() and not CourseEnrollment.is_enrolled(user, course.id)
 
+        course_updates = get_course_info_updates(request, course)
+
         context = {
             'request': request,
             'course_id': course_key.to_deprecated_string(),
@@ -667,6 +669,7 @@ def course_info(request, course_id):
             'studio_url': studio_url,
             'show_enroll_banner': show_enroll_banner,
             'url_to_enroll': url_to_enroll,
+            'course_updates': course_updates,
         }
 
         # Get the URL of the user's last position in order to display the 'where you were last' message

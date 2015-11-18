@@ -299,8 +299,6 @@ def get_course_info_section(request, course, section_key):
     - updates
     - guest_updates
     """
-    if section_key == 'updates':
-        print 'UPDATES'
     info_module = get_course_info_section_module(request, course, section_key)
 
     html = ''
@@ -326,10 +324,15 @@ def get_course_info_updates(request, course):
     course_updates = []
     if info_module is not None:
         try:
-            course_updates = info_module.items
+            course_updates = filter(lambda item: item.get('status') == 'visible', info_module.items)
             course_updates.sort(key=lambda item: datetime.strptime(item['date'], '%B %d, %Y'), reverse=True)
         except Exception:  # pylint: disable=broad-except
-            course_updates = [render_to_string('courseware/error-message.html', None)]
+            course_updates = [
+                {
+                    'is_error': True,
+                    'content': render_to_string('courseware/error-message.html', None),
+                }
+            ]
             log.exception(
                 u"Error rendering course=%s, section_key=%s",
                 course, 'updates'
