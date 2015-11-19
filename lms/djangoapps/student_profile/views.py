@@ -17,6 +17,11 @@ from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from student.models import User
 from microsite_configuration import microsite
 
+import json
+import urllib
+import urllib2
+
+import pdb
 
 @login_required
 @require_http_methods(['GET'])
@@ -45,6 +50,36 @@ def learner_profile(request, username):
     except (UserNotAuthorized, UserNotFound, ObjectDoesNotExist):
         raise Http404
 
+def get_user_badges(profile_user):
+    """ 
+    Retrieve badges from badgr server for display in the profile page
+    """
+
+    recipient = profile_user.email
+    issuer_slug = settings.BADGR_ISSUER_SLUG
+    server_base_url = settings.BADGR_BASE_URL
+    auth_token = settings.BADGR_API_TOKEN
+
+    # need to get recipient from the profile_user object here...
+    params = urllib.urlencode({'recipient' : recipient})
+    request = urllib2.Request(server_base_url + "/v1/issuer/issuers/" + issuer_slug + "/assertions?" + params)
+
+    request.add_header("Authorization", "Token %s" % auth_token)
+    result = urllib2.urlopen(request)
+    badge_assertions = json.load(result)
+
+    badges = [];
+
+    for i in range(len(badge_assertions)):
+        if badge_assertions[i].get('revoked') == False:
+            badge_class_request = urllib2.Request(badge_assertions[i].get('badgeclass'))
+            badge_class_result = urllib2.urlopen(badge_class_request)
+            badge_assertions[i]['badgeclass'] = json.load(badge_class_result)
+            badges.append(badge_assertions[i])
+
+
+    # Not sure why the reply comes back in a different format than result, code (as in 'getIssuers').
+    return (badges)
 
 def learner_profile_context(request, profile_username, user_is_staff):
     """Context for the learner profile page.
@@ -70,6 +105,8 @@ def learner_profile_context(request, profile_username, user_is_staff):
 
     preferences_data = get_user_preferences(profile_user, profile_username)
 
+    badgeAssertions = get_user_badges(profile_user)
+
     context = {
         'data': {
             'profile_user_id': profile_user.id,
@@ -89,6 +126,7 @@ def learner_profile_context(request, profile_username, user_is_staff):
             'country_options': list(countries),
             'language_options': settings.ALL_LANGUAGES,
             'platform_name': microsite.get_value('platform_name', settings.PLATFORM_NAME),
+            'badges': badgeAssertions
         },
         'disable_courseware_js': True,
     }

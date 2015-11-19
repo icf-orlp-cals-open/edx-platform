@@ -131,7 +131,8 @@
                 profileImageFieldView: profileImageFieldView,
                 usernameFieldView: usernameFieldView,
                 sectionOneFieldViews: sectionOneFieldViews,
-                sectionTwoFieldViews: sectionTwoFieldViews
+                sectionTwoFieldViews: sectionTwoFieldViews,
+                badges: options.badges
             });
 
             var getProfileVisibility = function() {

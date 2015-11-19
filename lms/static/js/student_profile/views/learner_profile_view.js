@@ -24,7 +24,8 @@
                 this.$el.html(_.template(learnerProfileTemplate, {
                     username: this.options.accountSettingsModel.get('username'),
                     ownProfile: this.options.ownProfile,
-                    showFullProfile: this.showFullProfile()
+                    showFullProfile: this.showFullProfile(),
+                    badges: this.options.badges
                 }));
                 this.renderFields();
                 return this;
