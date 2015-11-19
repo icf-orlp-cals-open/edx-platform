@@ -615,7 +615,7 @@ class YouTubeVideoTest(VideoBaseTest):
         # Change the language to Chinese and check for correct text
         self.video.select_language('zh')
         self.video.click_player_button('play')
-        self.video.wait_for_position('0:05')
+        self.video.wait_for_position('0:02')
         self.video.click_player_button('pause')
         self.video.seek('0:00')
         unicode_text = "好 各位同学".decode('utf-8')
@@ -624,7 +624,7 @@ class YouTubeVideoTest(VideoBaseTest):
         # Change the language to English and check for correct text
         self.video.select_language('en')
         self.video.click_player_button('play')
-        self.video.wait_for_position('0:05')
+        self.video.wait_for_position('0:02')
         self.video.click_player_button('pause')
         self.video.seek('0:01')
         self._verify_closed_caption_text('Welcome to edX.')

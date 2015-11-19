@@ -371,8 +371,6 @@ class VideoPage(PageObject):
         # Make sure that the captions are visible
         EmptyPromise(lambda: self.is_closed_captions_visible() == closed_captions_new_state,
                      "Closed captions are {state}".format(state=state)).fulfill()
-        # EmptyPromise(self.is_closed_captions_visible,
-        #              "closed captions are {state}".format(state=state)).fulfill()
 
     @property
     def captions_text(self):

@@ -1069,8 +1069,12 @@
                 event.preventDefault();
 
                 if (this.state.el.hasClass('has-captions')) {
+                    this.state.showClosedCaptions = false;
+                    this.updateCaptioningCookie(false);
                     this.hideClosedCaptions();
                 } else {
+                    this.state.showClosedCaptions = true;
+                    this.updateCaptioningCookie(true);
                     this.showClosedCaptions();
                 }
             },
@@ -1084,16 +1088,15 @@
 
                 if (this.subtitlesEl.find('.current').text()) {
                     this.captionDisplayEl
-                        .text(this.subtitlesEl.find('.current').text())
-                        .show();
+                        .text(this.subtitlesEl.find('.current').text());
                 } else {
                     this.captionDisplayEl
-                        .text(this.subtitlesEl.find('li').not('.spacing').text())
-                        .show();
+                        .text(gettext('(Captions will appear here once the video plays.)'));
                 }
 
-                this.state.showClosedCaptions = true;
-                this.updateCaptioningCookie(true);
+                this.captionDisplayEl
+                    .show()
+                    .addClass('is-visible');
             },
 
             hideClosedCaptions: function() {
@@ -1103,10 +1106,9 @@
                     .find('.control-text')
                         .text(gettext('Turn on closed captioning'));
 
-                this.captionDisplayEl.hide();
-
-                this.state.showClosedCaptions = false;
-                this.updateCaptioningCookie(false);
+                this.captionDisplayEl
+                    .hide()
+                    .removeClass('is-visible');
             },
 
             updateCaptioningCookie: function(method) {
@@ -1123,7 +1125,9 @@
             },
 
             getCaptionText: function() {
-                this.captionDisplayEl.text(this.subtitlesEl.find('.current').text());
+                if (this.state.el.hasClass('is-playing')) {
+                    this.captionDisplayEl.text(this.subtitlesEl.find('.current').text());
+                }
                 this.updateCaptionText();
             },
 

@@ -1,14 +1,14 @@
 (function(requirejs) {
     requirejs.config({
         paths: {
-            "moment": "xmodule/include/common_static/js/vendor/moment.min",
-            "draggabilly": "xmodule/include/common_static/js/vendor/draggabilly.pkgd"
-        },
-        "moment": {
-            exports: "moment"
+            "draggabilly": "xmodule/include/common_static/js/vendor/draggabilly.pkgd",
+            "moment": "xmodule/include/common_static/js/vendor/moment.min"
         },
         "draggabilly": {
             exports: "Draggabilly"
+        },
+        "moment": {
+            exports: "moment"
         }
     });
 
