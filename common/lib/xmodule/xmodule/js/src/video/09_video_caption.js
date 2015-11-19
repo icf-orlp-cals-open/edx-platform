@@ -208,7 +208,7 @@
                     case KEY.SPACE:
                     case KEY.ENTER:
                         event.preventDefault();
-                        this.toggleClosedCaptions;
+                        this.toggleClosedCaptions();
                 }
             },
 
@@ -392,7 +392,7 @@
             *
             * @param {jquery Event} event
             */
-            onMouseEnter: function (event) {
+            onMouseEnter: function () {
                 if (this.frozen) {
                     clearTimeout(this.frozen);
                 }
@@ -408,7 +408,7 @@
             *
             * @param {jquery Event} event
             */
-            onMouseLeave: function (event) {
+            onMouseLeave: function () {
                 if (this.frozen) {
                     clearTimeout(this.frozen);
                 }
@@ -425,7 +425,7 @@
             *
             * @param {jquery Event} event
             */
-            onMovement: function (event) {
+            onMovement: function () {
                 this.onMouseEnter();
             },
 
@@ -599,7 +599,7 @@
                             self.renderLanguageMenu(newLanguages);
                         }
                     },
-                    error: function (jqXHR, textStatus, errorThrown) {
+                    error: function () {
                         self.hideCaptions(true, false);
                         self.state.el.find('.lang').hide();
                         self.state.el.find('.transcript-control').hide();
@@ -1053,7 +1053,7 @@
             },
 
             handleCaptioningCookie: function() {
-                if ($.cookie('show_closed_captions') == 'true') {
+                if ($.cookie('show_closed_captions') === 'true') {
                     this.state.showClosedCaptions = true;
                     this.showClosedCaptions();
 

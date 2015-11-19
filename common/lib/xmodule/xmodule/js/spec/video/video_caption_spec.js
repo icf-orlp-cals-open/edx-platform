@@ -195,7 +195,7 @@
                         $('.toggle-captions').focus();
                         $('.toggle-captions').trigger(keyPressEvent(KEY.ENTER));
                         expect($('.toggle-captions')).toHaveClass('is-active');
-                        expect($('.closed-captions'))not.toBeHidden();
+                        expect($('.closed-captions')).not.toBeHidden();
 
                         $('.toggle-captions').focus();
                         $('.toggle-captions').trigger(keyPressEvent(KEY.ENTER));
