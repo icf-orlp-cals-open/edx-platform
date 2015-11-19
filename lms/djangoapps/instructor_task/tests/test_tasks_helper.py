@@ -423,6 +423,11 @@ class TestInstructorDetailedEnrollmentReport(TestReportMixin, InstructorTaskCour
             username=self.instructor.username)  # pylint: disable=no-member
         self.assertDictContainsSubset({'attempted': 1, 'succeeded': 1, 'failed': 0}, result)
         self._verify_cell_data_in_csv(student.username, 'Enrollment Source', enrollment_source)
+        self._verify_cell_data_in_csv(
+            student.username,
+            'Manual (Un)Enrollment Reason',
+            'manually enrolling unenrolled user'
+        )
         self._verify_cell_data_in_csv(student.username, 'Payment Status', 'TBD')
 
     def test_student_used_enrollment_code_for_course_enrollment(self):
