@@ -10,6 +10,7 @@
     <%
       # The create button links to the highest ancestor we have edit priveleges to
       create_article_root = None
+      create_article_here = None
     %>
     %for ancestor in urlpath.cached_ancestors:
       <li><a href="${reverse('wiki:get', kwargs={'path' : ancestor.path})}">${ancestor.article.current_revision.title}</a></li>
@@ -22,6 +23,9 @@
     <%
       if not create_article_root and urlpath.article.can_write(user):
         create_article_root = urlpath
+ 
+      if not create_article_current_level and urlpath.article.can_write(user):
+	create_article_here = urlpath
     %>
   </ul>
 
@@ -30,10 +34,16 @@
       <input type="search" placeholder="search wiki" />
     </form> -->
     %if create_article_root:
-    <a class="add-article-btn btn pull-left" href="${reverse('wiki:create', kwargs={'path' : create_article_root.path})}" style="padding: 7px;">
+    <!--<a class="add-article-btn btn pull-left" href="${reverse('wiki:create', kwargs={'path' : create_article_root.path})}" style="padding: 7px;">
       <i class="icon fa fa-plus"></i>
-      ${_("Add article")}
-    </a>
+      ${_("Add article")} (root)
+    </a>-->
+    %endif
+    %if create_article_here:
+    <a class="add-article-btn btn pull-left" href="${reverse('wiki:create', kwargs={'path' : create_article_here.path})}" style="padding: 7px;">
+      <i class="icon fa fa-plus"></i>
+      ${_("Add article")} 
+    </a> 
     %endif
   </div>
 </header>
